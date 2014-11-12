@@ -8,7 +8,7 @@ DNS_DB::DnsBlockPtr DNS_DB::BlockManager::getBlock(int id) {
 		CachedBlock cb;
 		cb.b.reset(nbl);
 		
-		blocks.emplace(id, cb);
+		blocks.insert({id, cb});
 
 		if (blocks.size() > BlockManager_flush_trigger)
 			flushUnusedBlocks();

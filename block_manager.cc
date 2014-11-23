@@ -2,7 +2,6 @@
 #include "dns_db.h"
 
 DNS_DB::DnsBlockPtr DNS_DB::BlockManager::getBlock(int id) {
-	#define BlockManager_flush_trigger 32
 	if (blocks.find(id) == blocks.end()) {
 		DnsBlock * nbl = db->getNewBlock(id);
 		CachedBlock cb;
@@ -19,10 +18,9 @@ DNS_DB::DnsBlockPtr DNS_DB::BlockManager::getBlock(int id) {
 
 void DNS_DB::BlockManager::flushUnusedBlocks() {
 	// Remove the blocks with less "t"
-	#define BlockManager_flush_maximum 16
 	while (blocks.size() > BlockManager_flush_maximum) {
 		// Look for candidate:
-		unsigned long min = ~0;
+		unsigned long min = (unsigned)~0;
 		std::map < int, CachedBlock >::iterator cand = blocks.end();
 		for (std::map< int, CachedBlock >::iterator it = blocks.begin(); it != blocks.end(); ++it) {
 			if (it->second.t < min) {
@@ -34,7 +32,7 @@ void DNS_DB::BlockManager::flushUnusedBlocks() {
 		}
 
 		// Now delete this block if there is only one reference to it
-		if (min != ~0) {
+		if (min != (unsigned)~0) {
 			assert(cand->second.b.use_count() == 1);
 			blocks.erase(cand);
 		}

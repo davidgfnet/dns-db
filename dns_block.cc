@@ -14,6 +14,11 @@ unsigned char DNS_DB::DnsBlock::flagDomain = 0x40;
 unsigned int DNS_DB::DnsBlock::blockSize = (1*1024*1024);
 unsigned int DNS_DB::DnsBlock::numBlocks = (1*1024*1024 / 64);
 
+#define EMPTY_FOUND     0
+#define NO_EMPTY_SPOT  -1
+#define ALREADY_EXISTS -2
+
+
 /** Dns Block */
 
 // Each block is 4MB. The block is subdivided in chunks of 64 bytes
@@ -99,10 +104,13 @@ std::vector <IPv4_Record> DNS_DB::DnsBlock::getIpsv4(int p) const {
 	return ret;
 }
 
+bool DNS_DB::DnsBlock::hasDomain(const char * domint) const {
+	return lookupEmptyDomainSpot(domint,0) == ALREADY_EXISTS;
+}
 
-int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain) const {
+int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain, int * pos) const {
 	DNS_DB::DnsBlock::InternalBlock * ptr = blockptr;
-	int last_empty = -1;
+	int last_empty = NO_EMPTY_SPOT;
 
 	#ifdef FAST_SEARCH
 	int first = 0, last = numBlocks-1;
@@ -131,36 +139,64 @@ int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain) const {
 			else if ( greater(ptr->data.domain.domain, domain) ) {
 				last = omiddle;
 			}
-			else
-				assert(0 && "Domain already there!\n");
+			else {
+				if (pos) *pos = first;
+				return ALREADY_EXISTS;
+			}
 		}
 		assert(last >= first);
 	}
 	ptr = &blockptr[first];
 	if (!(ptr->header & flagUsed)) {
-		//ssert(first == 0);
-		return first; // Ended up on an empty block, must be this!
+		if (pos) *pos = first;
+		return EMPTY_FOUND; // Ended up on an empty block, must be this!
 	}
 	else {
 		if ( greater(ptr->data.domain.domain, domain) ) {
 			while (first >= 0) {
-				if (!(blockptr[first].header & flagUsed))
-					return first;
-				else if (greater(blockptr[first].data.domain.domain, domain))
-					return -1;
+				if (!(blockptr[first].header & flagUsed)) {
+					if (pos) *pos = first;
+					return EMPTY_FOUND;
+				}
+				else if ((blockptr[first].header & flagDomain)) {
+					if (eq(blockptr[first].data.domain.domain, domain)) {
+						if (pos) *pos = first;
+						return ALREADY_EXISTS;
+					}
+					else if (less(blockptr[first].data.domain.domain, domain)) {
+						if (pos) *pos = first;
+						return NO_EMPTY_SPOT;
+					}
+				}
 				first--;
 			}
-			return -1;
+			if (pos) *pos = 0;
+			return NO_EMPTY_SPOT;
 		}
-		else {
+		else if ( less(ptr->data.domain.domain, domain) ) {
 			while (first < numBlocks) {
-				if (!(blockptr[first].header & flagUsed))
-					return first;
-				else if (greater(blockptr[first].data.domain.domain, domain))
-					return -1;
+				if (!(blockptr[first].header & flagUsed)) {
+					if (pos) *pos = first;
+					return EMPTY_FOUND;
+				}
+				else if ((blockptr[first].header & flagDomain)) {
+					if (eq(blockptr[first].data.domain.domain, domain)) {
+						if (pos) *pos = first;
+						return ALREADY_EXISTS;
+					}
+					else if (greater(blockptr[first].data.domain.domain, domain)) {
+						if (pos) *pos = first;
+						return NO_EMPTY_SPOT;
+					}
+				}
 				first++;
 			}
-			return -1;
+			if (pos) *pos = numBlocks;
+			return NO_EMPTY_SPOT;
+		}
+		else {
+			if (pos) *pos = first;
+			return ALREADY_EXISTS;
 		}
 	}
 	#else
@@ -173,11 +209,14 @@ int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain) const {
 		// Stop after we find our spot
 		if ((ptr->header & flagUsed) && (ptr->header & flagDomain)) {
 			if ( less(ptr->data.domain.domain, domain) ) {
-				last_empty = -1;
+				last_empty = NO_EMPTY_SPOT;
 			}
 			else {
 				// Found a domain which is bigger than us
-				assert( (memcmp(domain, ptr->data.domain.domain, MAX_DNS_SIZE) != 0) );
+				if (memcmp(domain, ptr->data.domain.domain, MAX_DNS_SIZE) == 0) {
+					if (pos) *pos = i;
+					return ALREADY_EXISTS;
+				}
 				break;
 			}
 		}
@@ -185,25 +224,31 @@ int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain) const {
 	#endif
 
 	// It can be either the empty slot to insert this one or null
+	if (pos) *pos = last_empty >= 0 ? last_empty : 0;
+	if (last_empty >= 0) return EMPTY_FOUND;
 	return last_empty;
 }
 
 // Returns false if it cannot add the domain, usually because 
 // of lack of space
-bool DNS_DB::DnsBlock::addDomain(const char * domint) {
-	int spot = lookupEmptyDomainSpot(domint);
+DNS_DB::queryError DNS_DB::DnsBlock::addDomain(const char * domint) {
+	int spot, res;
+	res = lookupEmptyDomainSpot(domint, &spot);
 
-	if (spot < 0) {
+	if (res == NO_EMPTY_SPOT) {
 		// No spece between records or at the end of the block,
 		// we need to do some relocs or split the chunk
 
 		// Try to find a place again
 		makeRoomMove(domint);
-		spot = lookupEmptyDomainSpot(domint);
+		res = lookupEmptyDomainSpot(domint,&spot);
+		assert(res != ALREADY_EXISTS);  // We would have detected this before, obviously
 
-		if (spot < 0)
-			return false;
+		if (res == NO_EMPTY_SPOT)
+			return resNoSpaceLeft;
 	}
+	else if (res == ALREADY_EXISTS)
+		return resAlreadyExists;
 
 	DNS_DB::DnsBlock::InternalBlock * place = &blockptr[spot];
 	assert((!(place->header & DNS_DB::DnsBlock::flagUsed) && !(place->header & DNS_DB::DnsBlock::flagDomain)));
@@ -218,7 +263,7 @@ bool DNS_DB::DnsBlock::addDomain(const char * domint) {
 	checkBM();
 	#endif
 
-	return true;
+	return resOK;
 }
 
 bool DNS_DB::DnsBlock::addDomainIpv4(const char * domint, const IPv4_Record & iprec) {
@@ -277,41 +322,10 @@ void DNS_DB::DnsBlock::makeRoomMove(const char * domain) {
 	// position
 	int p = 0;
 
-	#ifdef FAST_SEARCH
-	int first = 0, last = numBlocks-1;
-	while (first != last) {
-		// Look for a domain at a middle point
-		int omiddle = (first+last)>>1;
-		int middle = bitmap->getRight(omiddle, true);
-		if (middle < 0) middle = last;
-		while (middle <= last) {
-			if ((blockptr[middle].header & flagUsed) && (blockptr[middle].header & flagDomain))
-				break;
-			middle++;
-		}
-		// Discard this half, no domains here
-		if (middle > last) {
-			last = omiddle-1;
-			if (last < first)
-				last = first;
-		}
-		else {
-			// Compare
-			if ( less(blockptr[middle].data.domain.domain, domain) ) {
-				first = omiddle+1;
-			}
-			else if ( greater(blockptr[middle].data.domain.domain, domain) ) {
-				last = omiddle;
-			}
-			else {
-				first = last = middle;	
-			}
-		}
-		assert(last >= first);
-	}
-	p = first;
-	#endif
-	for (p = 0; p < numBlocks; p++) {
+	int res = lookupEmptyDomainSpot(domain, &p);
+	assert(res == NO_EMPTY_SPOT || res == ALREADY_EXISTS);
+
+	for (p; p < numBlocks; p++) {
 		DNS_DB::DnsBlock::InternalBlock * ptr = &blockptr[p];
 		// Stop after we find our spot
 		if ((ptr->header & flagUsed) && (ptr->header & DNS_DB::DnsBlock::flagDomain)) {
@@ -329,7 +343,7 @@ void DNS_DB::DnsBlock::makeRoomMove(const char * domain) {
 	}
 
 	// We should not have space after us, otherwise why are we getting called?
-	assert((blockptr[p].header & DNS_DB::DnsBlock::flagDomain) || (p == numBlocks));
+	assert((p == numBlocks) || (blockptr[p].header & DNS_DB::DnsBlock::flagDomain));
 
 	if (p == numBlocks)
 		return;

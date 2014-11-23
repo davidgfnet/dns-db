@@ -50,6 +50,7 @@ DNS_DB::DnsBlock * DNS_DB::getNewBlock(int blockid) {
 	std::string blockfile = db_path + "/" + dir1 + dir2 + filename + ".blk";
 
 	if (!FileMapper::getInstance().fileExists(blockfile)) {
+		mkdir((db_path).c_str(),                           S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		mkdir((db_path + "/" + dir1).c_str(),              S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		mkdir((db_path + "/" + dir1 + "/" + dir2).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	}

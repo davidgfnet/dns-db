@@ -144,19 +144,29 @@ void DNS_DB::DnsIndex::addIp4Record(const char * domain, const IPv4_Record & rec
 	}
 }
 
-void DNS_DB::DnsIndex::addDomain(const char * domain) {
+bool DNS_DB::DnsIndex::hasDomain(const char * domain) {
 	char domint[MAX_DNS_SIZE];
-	if (!domain2idom(domain, domint)) {
-		fprintf(stderr, "Domain too long!\n");
-		return;
-	}
+	if (!domain2idom(domain, domint))
+		return false;
+
+	int n = lookupNode(domint);
+	DNS_DB::DnsBlockPtr blk = database->getBlock(nodes[n].dnsblock_id);
+	
+	return blk->hasDomain(domint);
+}
+
+DNS_DB::queryError DNS_DB::DnsIndex::addDomain(const char * domain) {
+	char domint[MAX_DNS_SIZE];
+	if (!domain2idom(domain, domint))
+		return resDomainTooLong;
 
 	int n = lookupNode(domint);
 	DNS_DB::DnsBlockPtr blk = database->getBlock(nodes[n].dnsblock_id);
 
-	if (!blk->addDomain(domint)) {
+	queryError res = blk->addDomain(domint);
+
+	if (res == resNoSpaceLeft) {
 		// Ops, just split the Block in two, must be full
-		fprintf(stderr, "Block full!\n");
 		unsigned int nwblk_id = this->current_id++;
 		DnsBlockPtr newblk = database->getBlock(nwblk_id);
 		blk->splitBlock(domint, newblk);
@@ -176,7 +186,8 @@ void DNS_DB::DnsIndex::addDomain(const char * domain) {
 		n = lookupNode(domint);
 		blk = database->getBlock(nodes[n].dnsblock_id);
 
-		assert(blk->addDomain(domint));
+		res = blk->addDomain(domint);
+		assert(res != resNoSpaceLeft);
 	}
 
 	// Make sure the blog minimum is consistent
@@ -196,6 +207,8 @@ void DNS_DB::DnsIndex::addDomain(const char * domain) {
 		it.next();
 	}
 	#endif
+
+	return res;
 }
 
 void DNS_DB::DnsIndex::setBlkMinMax(int n, const char * vmin, const char * vmax) {

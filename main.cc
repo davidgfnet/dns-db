@@ -32,13 +32,23 @@ int main(int argc, char ** argv) {
 	std::string arg0    = std::string(argv[3]);
 
 	DNS_DB db(pathdb);
+
+	std::vector <std::string> check;
 	
 	if (command == "add-domains") {
 		igzstream fin (arg0.c_str());
 		std::string domain;
 		while (fin >> domain && !doexit) {
-			db.addDomain(domain);
+			DNS_DB::queryError r = db.addDomain(domain);
+			#ifdef EXTRA_CHECK
+			assert(r == DNS_DB::resOK || r == DNS_DB::resAlreadyExists || r == DNS_DB::resDomainTooLong);
+			if (r == DNS_DB::resOK)
+				check.push_back(domain);
+			#endif
 		}
+
+		for (unsigned int i = 0; i < check.size(); i++)
+			assert(db.hasDomain(check[i]));
 	}
 	else if (command == "list-domains") {
 		DNS_DB::DomainIterator it = db.getDomainIterator();

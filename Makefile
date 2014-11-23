@@ -1,13 +1,14 @@
 
 CPP=g++
 
-DEBUG=-DEXTRA_CHECK
-RELEASE=-DNDEBUG
+DEBUG=-DEXTRA_CHECK -O0
+RELEASE=-DNDEBUG -O3
 
 PG=#-pg
-OPTS=-DFAST_SEARCH $(DEBUG) 
+OPTS=$(RELEASE)  -DFAST_SEARCH
+#OPTS=-O3 -DFAST_SEARCH
 OBJS = dns_db.o dns_index.o dns_block.o util.o file_mapper.o bitmap.o block_manager.o
-CFLAGS= -ggdb -O2 $(PG)  $(OPTS) #-Wall
+CFLAGS= -ggdb $(PG)  $(OPTS) #-Wall
 CPPFLAGS=-std=c++11 $(CFLAGS)
 
 all:	$(OBJS)

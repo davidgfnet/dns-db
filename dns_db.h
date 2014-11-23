@@ -30,6 +30,9 @@ struct IPv4_Record {
 };
 
 class DNS_DB {
+public:
+	enum queryError { resOK, resNoSpaceLeft, resAlreadyExists, resDomainTooLong, resErrOther };
+
 private:
 
 	class Bitmap;
@@ -44,7 +47,8 @@ private:
 		~DnsBlock();
 
 		std::vector <IPv4_Record> getIpsv4(int p) const;
-		bool addDomain(const char * domain);
+		queryError addDomain(const char * domain);
+		bool hasDomain(const char * domint) const;
 		bool addDomainIpv4(const char * domint, const IPv4_Record & iprec);
 
 		void check() const;
@@ -97,7 +101,7 @@ private:
 		};
 
 		InternalBlock * lookupDomain(const char * domain) const;
-		int lookupEmptyDomainSpot(const char * domain) const;
+		int lookupEmptyDomainSpot(const char * domain, int * p) const;
 		void makeRoomMove(const char * domain);
 		bool addDomainIpv4_int(const char * domain, const IPv4_Record & iprec, bool ret);
 
@@ -165,7 +169,8 @@ private:
 		void serialize(std::string file);
 		void unserialize(const std::string & file);
 
-		void addDomain(const char * domain);
+		queryError addDomain(const char * domain);
+		bool hasDomain(const char * domain);
 		void addIp4Record(const char * domain, const IPv4_Record & record);
 		void check();
 
@@ -274,7 +279,8 @@ public:
 	DNS_DB(const std::string & path);
 	~DNS_DB();
 
-	void addDomain(const std::string & domain) { index.addDomain(domain.c_str()); }
+	queryError addDomain(const std::string & domain) { return index.addDomain(domain.c_str()); }
+	bool hasDomain(const std::string & domain) { return index.hasDomain(domain.c_str()); }
 	void addIp4Record(const std::string & domain, const IPv4_Record & record) { index.addIp4Record(domain.c_str(), record); }
 	void check();
 

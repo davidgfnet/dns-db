@@ -118,7 +118,7 @@ private:
 	public:
 		Bitmap(int numBits);
 		int getFirst(bool set) const;
-		int getRight(unsigned int pos, bool set) const;
+		int getRightSet (unsigned int pos) const;
 		int bitCount() const;
 		void clear() { bitm = std::vector<unsigned int> (bitm.size()); }
 

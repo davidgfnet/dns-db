@@ -11,8 +11,8 @@
 
 unsigned char DNS_DB::DnsBlock::flagUsed = 0x80;
 unsigned char DNS_DB::DnsBlock::flagDomain = 0x40;
-unsigned int DNS_DB::DnsBlock::blockSize = (1*1024*1024);
-unsigned int DNS_DB::DnsBlock::numBlocks = (1*1024*1024 / 64);
+unsigned int DNS_DB::DnsBlock::blockSize = (1024*1024);
+unsigned int DNS_DB::DnsBlock::numBlocks = (1024*1024 / 64);
 
 #define EMPTY_FOUND     0
 #define NO_EMPTY_SPOT  -1
@@ -117,7 +117,7 @@ int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain, int * pos) cons
 	while (first != last) {
 		// Look for a domain at a middle point
 		int omiddle = (first+last)>>1;
-		int middle = bitmap->getRight(omiddle, true);
+		int middle = bitmap->getRightSet(omiddle);
 		if (middle < 0) middle = last;
 		while (middle <= last) {
 			ptr = &blockptr[middle];

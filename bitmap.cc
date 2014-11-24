@@ -20,14 +20,16 @@ int DNS_DB::Bitmap::getFirst(bool value) const {
 	return -1;
 }
 
-int DNS_DB::Bitmap::getRight(unsigned int pos, bool set) const {
-	unsigned int mask = set ? 0 : ~0;
+int DNS_DB::Bitmap::getRightSet(unsigned int pos) const {
+	unsigned int residue = pos%(8*sizeof(unsigned int));
+	unsigned int mask = ((~0)<<residue);
 	for (unsigned int idx = pos/(8*sizeof(unsigned int)); idx < bitm.size(); idx++) {
-		if (bitm[idx] == mask) continue;
-		for (unsigned int off = pos%(8*sizeof(unsigned int)); off < sizeof(unsigned int)*8; off++) {
-			if (((bitm[idx] & (1<<off)) != 0) == set)
-				return idx*sizeof(unsigned int)*8 + off;
+		unsigned int val = bitm[idx] & mask;
+		if (val != 0) {
+			unsigned int off = __builtin_ctz(val);
+			return idx*sizeof(unsigned int)*8 + off;
 		}
+		mask = ~0;
 	}
 	return -1;
 }

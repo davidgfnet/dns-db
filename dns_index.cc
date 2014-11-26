@@ -143,7 +143,6 @@ void DNS_DB::DnsIndex::addIp4Record(const char * domain, const IPv4_Record & rec
 
 	if (!blk->addDomainIpv4(domint, record)) {
 		// Ops, just split the Block in two, must be full
-		fprintf(stderr, "Block full!\n");
 		unsigned int nwblk_id = this->current_id++;
 		DnsBlockPtr newblk = database->getBlock(nwblk_id);
 		blk->splitBlock(domint, newblk);

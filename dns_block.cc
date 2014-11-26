@@ -66,15 +66,16 @@ void DNS_DB::DnsBlock::checkBM() {
 
 DNS_DB::DnsBlock::InternalBlock * DNS_DB::DnsBlock::lookupDomain(const char * domain) const {
 	// Pick the specified element
-	DNS_DB::DnsBlock::InternalBlock * ptr = blockptr;
-	
-	while (ptr != endptr) {
-		if (memcmp(domain, ptr->data.domain.domain, MAX_DNS_SIZE) == 0)
-			return ptr;
-		ptr++;
-	}
+	int p;
+	int res = lookupEmptyDomainSpot(domain, &p);
+	if (res != ALREADY_EXISTS || p < 0 || p >= numBlocks) return 0;
 
-	return 0;
+	DNS_DB::DnsBlock::InternalBlock * ptr = &blockptr[p];
+
+	assert(ptr->header & flagDomain);
+	assert(memcmp(domain, ptr->data.domain.domain, MAX_DNS_SIZE) == 0);
+	
+	return ptr;
 }
 
 // Lookups a domain and returns all its IPs (v4)

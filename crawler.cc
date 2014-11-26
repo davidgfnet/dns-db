@@ -100,7 +100,7 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
 	free(arg);
 
 	if (status == ARES_SUCCESS) {
-		std::cout << domarg << " " << host->h_name << std::endl;
+		//std::cout << domarg << " " << host->h_name << std::endl;
 
 		std::string domain = domarg;
 		if (host->h_addr == 0) return;

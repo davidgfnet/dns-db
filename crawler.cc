@@ -24,7 +24,7 @@ struct in_addr dns_servers_addr[4];
 
 DNS_DB * db;
 int inflight = 0;
-#define MAX_INFLIGHT 1000
+#define MAX_INFLIGHT 2000
 
 int main(int argc, char ** argv) {
 	if (argc < 2) {

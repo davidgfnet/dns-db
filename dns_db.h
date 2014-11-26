@@ -304,7 +304,7 @@ public:
 
 	class DomainIterator {
 	public:
-		friend DNS_DB;
+		friend class DNS_DB;
 
 		// Modify
 		DomainIterator(DNS_DB::DnsIndex * idx, const char * domint, DNS_DB * dbref);

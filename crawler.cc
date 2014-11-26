@@ -122,14 +122,10 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
 					break;
 				}
 			}
-			if (replace) {
-				std::cerr << "Replace" << std::endl;
+			if (replace)
 				db->replaceIpv4(domain, oldrec, rec);
-			}
-			else {
-				std::cerr << "Insert" << std::endl;
+			else
 				it.addIpv4(rec);
-			}
 		}
 	}
 }

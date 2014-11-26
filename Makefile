@@ -6,11 +6,11 @@ RELEASE=-DNDEBUG -O3
 
 PG=#-pg
 #OPTS=-O1  -DFAST_SEARCH
-#OPTS=$(RELEASE)  -DFAST_SEARCH
-OPTS=-O3   -DFAST_SEARCH  -DEXTRA_CHECK
+OPTS=$(RELEASE)  -DFAST_SEARCH
+#OPTS=-O3   -DFAST_SEARCH  -DEXTRA_CHECK
 OBJS = dns_db.o dns_index.o dns_block.o util.o file_mapper.o bitmap.o block_manager.o
 CFLAGS= -ggdb $(PG)  $(OPTS) #-Wall
-CPPFLAGS=-std=c++11 $(CFLAGS)
+CPPFLAGS=-std=gnu++11 $(CFLAGS)
 
 all:	$(OBJS)
 	$(CPP) $(CPPFLAGS) $(PG) -o dns $(OBJS) main.cc ext/gzstream.cc  -I ext/ -lz -ggdb

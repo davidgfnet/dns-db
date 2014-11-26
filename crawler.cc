@@ -104,10 +104,15 @@ static void callback(void *arg, int status, int timeouts, struct hostent *host) 
 
 		std::string domain = domarg;
 		if (host->h_addr == 0) return;
-		unsigned int ip = *(unsigned int*)host->h_addr;
-		if (db->hasDomain(domain)) {
+		if (!db->hasDomain(domain)) return;
+
+		struct in_addr **addr_list = (struct in_addr **) host->h_addr_list;
+		for(int i = 0; addr_list[i] != NULL; i++) {
+			unsigned long ip = ntohl(addr_list[i]->s_addr);
+
 			DNS_DB::DomainIterator it = db->getDomainIterator(domain);
 			std::vector <IPv4_Record> r = it.getIpsv4();
+
 			IPv4_Record rec, oldrec;
 			rec.first_seen = time(0);
 			rec.last_seen = time(0);

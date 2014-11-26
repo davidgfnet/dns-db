@@ -83,7 +83,6 @@ void DNS_DB::FileMapper::flushCached() {
 		// Look for a victim
 		for (unsigned int i = 0; i < files.size(); i++) {
 			if (files[i].refs == 0) {
-				std::cerr << "Flushing shit out" << std::endl;
 				mapped_cached -= files[i].size;
 				this->deallocate(i);
 				break;

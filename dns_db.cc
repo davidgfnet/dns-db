@@ -58,7 +58,36 @@ DNS_DB::DnsBlock * DNS_DB::getNewBlock(int blockid) {
 	return new DNS_DB::DnsBlock(blockfile, blockid);
 }
 
+void DNS_DB::updateIterators() {
+	for (unsigned i = 0; i < iterators.size(); i++)
+		iterators[i]->resync();
+}
 
-DNS_DB::DomainIterator::DomainIterator(DNS_DB::DnsIndex * idx, DNS_DB * dbref) : it(idx->getIterator()), db(dbref) {}
+
+DNS_DB::queryError DNS_DB::addDomain(const std::string & domain) {
+	queryError res = index.addDomain(domain.c_str());
+	updateIterators();
+	return res;
+}
+
+void DNS_DB::addIp4Record(const std::string & domain, const IPv4_Record & record) {
+	index.addIp4Record(domain.c_str(), record);
+	updateIterators();
+}
+
+
+void DNS_DB::replaceIpv4(const std::string & domain, const IPv4_Record & oldrec, const IPv4_Record & newrec) {
+	index.replaceIpv4(domain.c_str(), oldrec, newrec);
+	updateIterators();
+}
+
+DNS_DB::DomainIterator::DomainIterator(DNS_DB::DnsIndex * idx, const char * domint, DNS_DB * dbref) : index(idx),it(idx->getIterator(domint)), db(dbref) {
+	it.getDomain(current_domain);
+}
+
+void DNS_DB::DomainIterator::resync() {
+	// Essentially create a new Index Iterator to point our current domain
+	this->it = index->getIterator(current_domain);
+}
 
 

@@ -57,7 +57,7 @@ int main(int argc, char ** argv) {
 			std::cout << it.getDomain() << std::endl;
 			std::vector <IPv4_Record> r = it.getIpsv4();
 			for (int i = 0; i < r.size(); i++) {
-				std::cout << r[i].ip << std::endl;
+				std::cout << r[i].ip << " " << r[i].first_seen << " " << r[i].last_seen <<  std::endl;
 			}
 		}
 	}

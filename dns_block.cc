@@ -140,7 +140,7 @@ int DNS_DB::DnsBlock::lookupEmptyDomainSpot(const char * domain, int * pos) cons
 				last = omiddle;
 			}
 			else {
-				if (pos) *pos = first;
+				if (pos) *pos = middle;
 				return ALREADY_EXISTS;
 			}
 		}
@@ -264,6 +264,33 @@ DNS_DB::queryError DNS_DB::DnsBlock::addDomain(const char * domint) {
 	#endif
 
 	return resOK;
+}
+
+bool DNS_DB::DnsBlock::replaceDomainIpv4(const char * domint, const IPv4_Record & oldrec, const IPv4_Record & newrec) {
+	DNS_DB::DnsBlock::InternalBlock * ptr = lookupDomain(domint);
+	if (ptr == 0)
+		return false;
+
+	do {
+		if (ptr->header & DNS_DB::DnsBlock::flagDomain) {
+			for (int i = 0; i < 2; i++)
+				if (ptr->data.domain.records[i] == oldrec) {
+					ptr->data.domain.records[i] = newrec;
+					return true;
+				}
+		}
+		else {
+			for (int i = 0; i < 5; i++)
+				if (ptr->data.records.records[i] == oldrec) {
+					ptr->data.records.records[i] = newrec;
+					return true;
+				}
+		}
+
+		ptr++;
+	} while ( ptr != endptr && (ptr->header & DNS_DB::DnsBlock::flagUsed) && !(ptr->header & DNS_DB::DnsBlock::flagDomain));
+
+	return false;
 }
 
 bool DNS_DB::DnsBlock::addDomainIpv4(const char * domint, const IPv4_Record & iprec) {
@@ -457,14 +484,24 @@ void DNS_DB::DnsBlock::check() const {
 /** Iterator stuff */
 
 // Iterator for DnsBlock: Goto the first domain (or to the end, if no domains at all!)
-DNS_DB::DnsBlock::Iterator::Iterator (int blkid, int n, DNS_DB * dbref) : p(n), block_id(blkid), db(dbref) {
+DNS_DB::DnsBlock::Iterator::Iterator (int blkid, const char * domint, DNS_DB * dbref) : block_id(blkid), db(dbref) {
 	DnsBlockPtr block = db->getBlock(blkid);
+
+	if (domint) {
+		int r = block->lookupEmptyDomainSpot(domint, &p);
+		assert(r == ALREADY_EXISTS);
+	}
+	else
+		p = 0;
+
 	while (&block->blockptr[p] != block->endptr && 
-		!(block->blockptr[p].header & DNS_DB::DnsBlock::flagDomain) && 
-		!(block->blockptr[p].header & DNS_DB::DnsBlock::flagUsed)) {
+		!( (block->blockptr[p].header & flagDomain) && (block->blockptr[p].header & flagUsed)) ) {
 
 		p++;
 	}
+
+	assert(p >= 0 && p < numBlocks);
+	assert(block->blockptr[p].header & flagDomain);
 }
 
 void DNS_DB::DnsBlock::Iterator::next() {
@@ -472,8 +509,7 @@ void DNS_DB::DnsBlock::Iterator::next() {
 	do {
 		p++;
 	} while (&block->blockptr[p] != block->endptr && 
-		!(block->blockptr[p].header & DNS_DB::DnsBlock::flagDomain) && 
-		!(block->blockptr[p].header & DNS_DB::DnsBlock::flagUsed));
+		!( (block->blockptr[p].header & flagDomain) && (block->blockptr[p].header & flagUsed) ));
 }
 
 bool DNS_DB::DnsBlock::Iterator::end() const {
@@ -482,8 +518,7 @@ bool DNS_DB::DnsBlock::Iterator::end() const {
 	do {
 		i++;
 	} while (&block->blockptr[i] != block->endptr && 
-		!(block->blockptr[i].header & DNS_DB::DnsBlock::flagDomain) && 
-		!(block->blockptr[i].header & DNS_DB::DnsBlock::flagUsed));
+		!( (block->blockptr[i].header & flagDomain) && (block->blockptr[i].header & flagUsed) ));
 
 	return &block->blockptr[i] == block->endptr;
 }
@@ -496,4 +531,10 @@ std::string DNS_DB::DnsBlock::Iterator::getDomain() {
 	return std::string(tmp2);
 }
 
+void DNS_DB::DnsBlock::Iterator::getDomain(char * dom) {
+	DnsBlockPtr block = db->getBlock(block_id);
+	assert(p >= 0 && p < numBlocks);
+	assert(block->blockptr[p].header & flagDomain);
+	memcpy(dom, block->blockptr[p].data.domain.domain, MAX_DNS_SIZE);
+}
 

@@ -28,6 +28,9 @@ struct IPv4_Record {
 	Timestamp first_seen, last_seen;
 	IPv4 ip;
 };
+static bool operator==(const IPv4_Record& lhs, const IPv4_Record& rhs) {
+    return lhs.ip == rhs.ip && lhs.first_seen == rhs.first_seen && lhs.last_seen == rhs.last_seen;
+}
 
 class DNS_DB {
 public:
@@ -49,7 +52,8 @@ private:
 		std::vector <IPv4_Record> getIpsv4(int p) const;
 		queryError addDomain(const char * domain);
 		bool hasDomain(const char * domint) const;
-		bool addDomainIpv4(const char * domint, const IPv4_Record & iprec);
+		bool addDomainIpv4    (const char * domint, const IPv4_Record & iprec);
+		bool replaceDomainIpv4(const char * domint, const IPv4_Record & oldred, const IPv4_Record & newrec);
 
 		void check() const;
 
@@ -62,10 +66,10 @@ private:
 
 		class Iterator {
 		public:
-			Iterator(int blkid, int n, DNS_DB * dbref);
+			Iterator(int blkid, const char * domint, DNS_DB * dbref);
 			void next();
 			bool end() const;
-			void getDomain(char * dom) { memcpy(dom, db->getBlock(block_id)->blockptr[p].data.domain.domain, MAX_DNS_SIZE); }
+			void getDomain(char * dom);
 			std::vector <IPv4_Record> getIpsv4() { return db->getBlock(block_id)->getIpsv4(p); }
 			std::string getDomain();
 		private:
@@ -74,7 +78,7 @@ private:
 			DNS_DB * db;
 		};
 
-		Iterator getIterator(DNS_DB * dbref) { return Iterator(blockid, 0, dbref); }
+		Iterator getIterator(DNS_DB * dbref, const char * domint) { return Iterator(blockid, domint, dbref); }
 		
 		void splitBlock(const char * domint, DnsBlockPtr & newblk);
 
@@ -146,15 +150,18 @@ private:
 
 		class Iterator {
 		public:
-			Iterator(DnsIndex * i, int n, DNS_DB * dbref) : p(n), idx(i), block_it(i->getBlock(n)->getIterator(dbref)), db(dbref) {}
+			// Modifiers
+			Iterator(DnsIndex * i, int n, const char * domint, DNS_DB * dbref) : p(n), idx(i), block_it(i->getBlock(n)->getIterator(dbref, domint)), db(dbref) {}
 			void next() {
 				if (block_it.end()) {
 					p++;
-					block_it = idx->getBlock(p)->getIterator(db);
+					block_it = idx->getBlock(p)->getIterator(db, 0);
 				}
 				else
 					block_it.next();
 			}
+
+			// Query
 			bool end() const { return block_it.end() && p == idx->nodes.size()-1; }
 			void getDomain(char * dom) { block_it.getDomain(dom); }
 			std::string getDomain() { return block_it.getDomain(); }
@@ -172,6 +179,8 @@ private:
 		queryError addDomain(const char * domain);
 		bool hasDomain(const char * domain);
 		void addIp4Record(const char * domain, const IPv4_Record & record);
+		void replaceIpv4(const char * domain, const IPv4_Record & oldrec, const IPv4_Record & newrec);
+
 		void check();
 
 		void setBlkMinMax(int n, const char * vmin, const char * vmax);
@@ -179,8 +188,8 @@ private:
 		void getBlkMin(int n, char * v);
 		int addBlock(unsigned int nwblk_id, const char * vmin, const char * vmax);
 
-		Iterator getIterator() { return Iterator(this, 0, database); }
-		Iterator getIterator(const std::string & domain);
+		Iterator getIterator() { return Iterator(this, 0, 0, database); }
+		Iterator getIterator(const char * domint);
 
 		unsigned long getNumberRecords();
 		unsigned long getNumberFreeRecords();
@@ -275,31 +284,66 @@ private:
 	DnsBlockPtr getBlock(int blockid) { return blockmgr.getBlock(blockid); }
 	DnsBlock * getNewBlock(int blockid);
 
+	// Internal stuff
+	void updateIterators();
+
 public:
 	DNS_DB(const std::string & path);
 	~DNS_DB();
 
-	queryError addDomain(const std::string & domain) { return index.addDomain(domain.c_str()); }
+	// Modifiers
+	queryError addDomain(const std::string & domain);
+	void addIp4Record(const std::string & domain, const IPv4_Record & record);
+	void replaceIpv4(const std::string & domain, const IPv4_Record & oldrec, const IPv4_Record & newrec);
+
+	// Queries
 	bool hasDomain(const std::string & domain) { return index.hasDomain(domain.c_str()); }
-	void addIp4Record(const std::string & domain, const IPv4_Record & record) { index.addIp4Record(domain.c_str(), record); }
+
+	// Maintenance
 	void check();
 
 	class DomainIterator {
 	public:
-		DomainIterator(DNS_DB::DnsIndex * idx, DNS_DB * dbref);
-		void next() { it.next(); }
+		friend DNS_DB;
+
+		// Modify
+		DomainIterator(DNS_DB::DnsIndex * idx, const char * domint, DNS_DB * dbref);
+		void next() {
+			// Save the current domain to resync
+			it.next();
+			it.getDomain(current_domain);
+		}
+		void addIpv4(const IPv4_Record & rec) { db->addIp4Record(getDomain(), rec); }
+
+		// Query
 		bool end() const { return it.end(); }
 		std::string getDomain() { return it.getDomain(); }
 		std::vector <IPv4_Record> getIpsv4() { return it.getIpsv4(); }
+
 	private:
+		DnsIndex * index;
 		DnsIndex::Iterator it;
 		DNS_DB * db;
+		char current_domain[MAX_DNS_SIZE];
+
+		void resync();
 	};
 
-	DomainIterator getDomainIterator() { return DomainIterator(&index, this); }
+	DomainIterator getDomainIterator() { return DomainIterator(&index, 0, this); }
+	DomainIterator getDomainIterator(const std::string & domain) {
+		char domint[MAX_DNS_SIZE];
+		if (!domain2idom(domain.c_str(), domint)) {
+			fprintf(stderr,"Error in domain name\n");
+		}
+		return DomainIterator(&index, domint, this);
+	}
 
 	unsigned long getNumberRecords() { return index.getNumberRecords(); }
 	unsigned long getNumberFreeRecords() { return index.getNumberFreeRecords(); }
+
+private:
+	// Iterators, save them here to track DB updates
+	std::vector <DomainIterator*> iterators;
 };
 
 

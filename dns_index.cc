@@ -14,13 +14,23 @@
 
 int DNS_DB::DnsIndex::lookupNode(const char * domain) const {
 	// Look for node which potentially has this domain
-	// TODO: Use dicathomic search
-	for (unsigned int i = 0; i < nodes.size(); i++) {
+	/*for (unsigned int i = 0; i < nodes.size(); i++) {
 		const Node * n = &nodes[i];
 		if ( less_eq(n->min, domain) && less(domain, n->max) ) {
 			// Return this node
 			return i;
 		}
+	}*/
+	int first = 0, last = nodes.size()-1;
+	while (first <= last) {
+		int middle = (first+last)>>1;
+		const Node * n = &nodes[middle];
+		if ( less_eq(n->min, domain) && less(domain, n->max) )
+			return middle;
+		else if less_eq(domain, n->min)
+			last = middle - 1;
+		else
+			first = middle + 1;
 	}
 	assert(0 && "This should never occur\n");
 	return -1;
@@ -100,12 +110,25 @@ void DNS_DB::DnsIndex::check() {
 	}
 }
 
-DNS_DB::DnsIndex::Iterator DNS_DB::DnsIndex::getIterator(const std::string & domain) {
+DNS_DB::DnsIndex::Iterator DNS_DB::DnsIndex::getIterator(const char * domint) {
+	if (domint) {
+		int n = lookupNode(domint);
+		return DNS_DB::DnsIndex::Iterator(this, n, domint, database);
+	}else{
+		return DNS_DB::DnsIndex::Iterator(this, 0, 0, database);
+	}
+}
+
+void DNS_DB::DnsIndex::replaceIpv4(const char * domain, const IPv4_Record & oldrec, const IPv4_Record & newrec) {
 	char domint[MAX_DNS_SIZE];
-	domain2idom(domain.c_str(), domint);
+	if (!domain2idom(domain, domint)) {
+		fprintf(stderr, "Domain too long!\n");
+		return;
+	}
 
 	int n = lookupNode(domint);
-	return DNS_DB::DnsIndex::Iterator(this, n, database);
+	DNS_DB::DnsBlockPtr blk = database->getBlock(nodes[n].dnsblock_id);
+	blk->replaceDomainIpv4(domint, oldrec, newrec);
 }
 
 void DNS_DB::DnsIndex::addIp4Record(const char * domain, const IPv4_Record & record) {
@@ -140,7 +163,8 @@ void DNS_DB::DnsIndex::addIp4Record(const char * domain, const IPv4_Record & rec
 		n = lookupNode(domint);
 		blk = database->getBlock(nodes[n].dnsblock_id);
 
-		assert(blk->addDomainIpv4(domint, record));
+		bool r = blk->addDomainIpv4(domint, record);
+		assert(r);
 	}
 }
 
@@ -193,12 +217,12 @@ DNS_DB::queryError DNS_DB::DnsIndex::addDomain(const char * domain) {
 	// Make sure the blog minimum is consistent
 	#ifdef EXTRA_CHECK
 	char tmpd[MAX_DNS_SIZE];
-	blk->getIterator(database).getDomain(tmpd);
+	blk->getIterator(database, 0).getDomain(tmpd);
 	assert(less_eq(nodes[n].min, tmpd));
 
 	// Make sure it is allright
 	char prev[MAX_DNS_SIZE] = {0};
-	DnsBlock::Iterator it = blk->getIterator(database);
+	DnsBlock::Iterator it = blk->getIterator(database, 0);
 	while (!it.end()) {
 		char curr[MAX_DNS_SIZE];
 		it.getDomain(curr);

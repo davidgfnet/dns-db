@@ -83,6 +83,16 @@ void DNS_DB::replaceIpv4(const std::string & domain, const IPv4_Record & oldrec,
 
 DNS_DB::DomainIterator::DomainIterator(DNS_DB::DnsIndex * idx, const char * domint, DNS_DB * dbref) : index(idx),it(idx->getIterator(domint)), db(dbref) {
 	it.getDomain(current_domain);
+	db->iterators.push_back(this);
+}
+
+DNS_DB::DomainIterator::~DomainIterator() {
+	for (unsigned int i = 0; i < db->iterators.size(); i++) {
+		if (db->iterators[i] == this) {
+			db->iterators.erase(db->iterators.begin()+i);
+			break;
+		}
+	}
 }
 
 void DNS_DB::DomainIterator::resync() {

@@ -308,6 +308,7 @@ public:
 
 		// Modify
 		DomainIterator(DNS_DB::DnsIndex * idx, const char * domint, DNS_DB * dbref);
+		~DomainIterator();
 		void next() {
 			// Save the current domain to resync
 			it.next();

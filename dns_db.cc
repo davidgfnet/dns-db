@@ -22,7 +22,7 @@ DNS_DB::DNS_DB(const std::string & path) : blockmgr(this), index(this) {
 }
 
 DNS_DB::~DNS_DB() {
-	// Read index
+	// Writeback index
 	index.serialize(db_path + "/index");
 }
 

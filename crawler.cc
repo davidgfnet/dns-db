@@ -86,11 +86,17 @@ int main(int argc, char ** argv) {
 			if (nfds > 0)
 				select(nfds, &read_fds, &write_fds, NULL, tvp);
 			ares_process(channel, &read_fds, &write_fds);
-		} while(inflight >= MAX_INFLIGHT || it.end());
+		} while(inflight >= MAX_INFLIGHT);
+
+		// Exit if we are done
+		if (inflight == 0 && it.end())
+			break;
 	}
 
 	ares_destroy(channel);
 	ares_library_cleanup();
+
+	delete db;
 }
 
 

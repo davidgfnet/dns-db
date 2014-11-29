@@ -14,13 +14,6 @@
 
 int DNS_DB::DnsIndex::lookupNode(const char * domain) const {
 	// Look for node which potentially has this domain
-	/*for (unsigned int i = 0; i < nodes.size(); i++) {
-		const Node * n = &nodes[i];
-		if ( less_eq(n->min, domain) && less(domain, n->max) ) {
-			// Return this node
-			return i;
-		}
-	}*/
 	int first = 0, last = nodes.size()-1;
 	while (first <= last) {
 		int middle = (first+last)>>1;

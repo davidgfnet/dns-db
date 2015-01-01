@@ -3,13 +3,11 @@
 #include <map>
 #include <string>
 #include <string.h>
-#include <stdint.h>
 #include <assert.h>
 #include <memory>
+#include "record.h"
 #include "config.h"
 
-#define IPv4 uint32_t
-#define Timestamp uint32_t
 #define MAX_DNS_SIZE 35
 
 #define less(a, b)       (strncmp(a, b, MAX_DNS_SIZE) < 0)    // whether a < b
@@ -23,14 +21,6 @@
 
 bool domain2idom(const char * domain, char * intdom);
 void idom2domain(const char * intdom, char * domain);
-
-struct IPv4_Record {
-	Timestamp first_seen, last_seen;
-	IPv4 ip;
-};
-static bool operator==(const IPv4_Record& lhs, const IPv4_Record& rhs) {
-    return lhs.ip == rhs.ip && lhs.first_seen == rhs.first_seen && lhs.last_seen == rhs.last_seen;
-}
 
 class DNS_DB {
 public:

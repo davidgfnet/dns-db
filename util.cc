@@ -14,7 +14,7 @@ const char * tld_domains[] = {
 	"",
 	"com", "org", "net", "int", "edu", "gov", "mil", 
 	"biz", "info",
-	"at", "ca", "de", "es", "ru", "us", "fr"
+	"at", "ca", "de", "es", "ru", "us", "fr", "se",
 };
 
 bool domain2idom(const char * domain, char * intdom) {

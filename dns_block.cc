@@ -485,8 +485,9 @@ void DNS_DB::DnsBlock::check() const {
 /** Iterator stuff */
 
 // Iterator for DnsBlock: Goto the first domain (or to the end, if no domains at all!)
-DNS_DB::DnsBlock::Iterator::Iterator (int blkid, const char * domint, DNS_DB * dbref) : block_id(blkid), db(dbref) {
-	DnsBlockPtr block = db->getBlock(blkid);
+DNS_DB::DnsBlock::Iterator::Iterator (int blkid, const char * domint, DNS_DB * dbref)
+ : db(dbref) {
+	block = db->getBlock(blkid);
 
 	if (domint) {
 		int r = block->lookupEmptyDomainSpot(domint, &p);
@@ -506,7 +507,6 @@ DNS_DB::DnsBlock::Iterator::Iterator (int blkid, const char * domint, DNS_DB * d
 }
 
 void DNS_DB::DnsBlock::Iterator::next() {
-	DnsBlockPtr block = db->getBlock(block_id);
 	do {
 		p++;
 	} while (&block->blockptr[p] != block->endptr && 
@@ -514,7 +514,6 @@ void DNS_DB::DnsBlock::Iterator::next() {
 }
 
 bool DNS_DB::DnsBlock::Iterator::end() const {
-	DnsBlockPtr block = db->getBlock(block_id);
 	int i = p;
 	do {
 		i++;
@@ -533,7 +532,6 @@ std::string DNS_DB::DnsBlock::Iterator::getDomain() {
 }
 
 void DNS_DB::DnsBlock::Iterator::getDomain(char * dom) {
-	DnsBlockPtr block = db->getBlock(block_id);
 	assert(p >= 0 && p < numBlocks);
 	assert(block->blockptr[p].header & flagDomain);
 	memcpy(dom, block->blockptr[p].data.domain.domain, MAX_DNS_SIZE);

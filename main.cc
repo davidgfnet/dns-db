@@ -52,7 +52,7 @@ int main(int argc, char ** argv) {
 	}
 	else if (command == "list-domains") {
 		DNS_DB::DomainIterator it = db.getDomainIterator();
-		while (!it.end()) {
+		while (!it.end() && !doexit) {
 			it.next();
 			std::cout << it.getDomain() << std::endl;
 			std::vector <IPv4_Record> r = it.getIpsv4();

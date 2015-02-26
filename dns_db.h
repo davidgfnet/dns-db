@@ -60,12 +60,12 @@ private:
 			void next();
 			bool end() const;
 			void getDomain(char * dom);
-			std::vector <IPv4_Record> getIpsv4() { return db->getBlock(block_id)->getIpsv4(p); }
+			std::vector <IPv4_Record> getIpsv4() { return block->getIpsv4(p); }
 			std::string getDomain();
 		private:
 			int p;
-			int block_id;
 			DNS_DB * db;
+			DnsBlockPtr block;
 		};
 
 		Iterator getIterator(DNS_DB * dbref, const char * domint) { return Iterator(blockid, domint, dbref); }
